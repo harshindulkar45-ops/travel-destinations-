@@ -1,0 +1,212 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { MapPin } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import L from "leaflet";
+
+const destinationsByState = {
+  France: [
+    {
+      name: "Paris",
+      image: "https://source.unsplash.com/600x400/?paris,eiffel",
+      description: "The city of lights, romance, and culture. Visit the Eiffel Tower, Louvre, and stroll along the Seine.",
+      coordinates: [48.8566, 2.3522],
+    },
+  ],
+  Japan: [
+    {
+      name: "Kyoto",
+      image: "https://source.unsplash.com/600x400/?kyoto,japan",
+      description: "A city of temples, cherry blossoms, and traditional tea houses. Perfect for history and nature lovers.",
+      coordinates: [35.0116, 135.7681],
+    },
+  ],
+  Greece: [
+    {
+      name: "Santorini",
+      image: "https://source.unsplash.com/600x400/?santorini,greece",
+      description: "White-washed houses with blue domes overlooking the Aegean Sea. Breathtaking sunsets await.",
+      coordinates: [36.3932, 25.4615],
+    },
+  ],
+  USA: [
+    {
+      name: "New York City",
+      image: "https://source.unsplash.com/600x400/?newyork,city",
+      description: "The city that never sleeps! Explore Times Square, Central Park, Broadway, and world-class museums.",
+      coordinates: [40.7128, -74.006],
+    },
+  ],
+};
+
+const customIcon = new L.Icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+  iconSize: [30, 30],
+  iconAnchor: [15, 30],
+});
+
+function MapViewUpdater({ places, highlighted }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (highlighted) {
+      map.setView(highlighted.coordinates, 8, { animate: true });
+    } else if (places.length > 0) {
+      const bounds = L.latLngBounds(places.map((p) => p.coordinates));
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [places, highlighted, map]);
+
+  return null;
+}
+
+export default function TravelDestinations() {
+  const [selectedState, setSelectedState] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [highlightedPlace, setHighlightedPlace] = useState(null);
+  const cardRefs = useRef({});
+
+  const states = ["All", ...Object.keys(destinationsByState)];
+
+  let filteredDestinations =
+    selectedState === "All"
+      ? destinationsByState
+      : { [selectedState]: destinationsByState[selectedState] };
+
+  filteredDestinations = Object.fromEntries(
+    Object.entries(filteredDestinations).map(([state, places]) => [
+      state,
+      places.filter((place) =>
+        place.name.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+    ])
+  );
+
+  const allPlaces = Object.values(filteredDestinations).flat();
+
+  useEffect(() => {
+    if (highlightedPlace && cardRefs.current[highlightedPlace.name]) {
+      cardRefs.current[highlightedPlace.name].scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }
+  }, [highlightedPlace]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+      <motion.h1
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-4xl font-bold text-center mb-10 text-indigo-800"
+      >
+        🌍 My Favorite Travel Destinations (State-wise)
+      </motion.h1>
+
+      <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-10">
+        <select
+          value={selectedState}
+          onChange={(e) => setSelectedState(e.target.value)}
+          className="px-4 py-2 rounded-xl shadow border border-gray-300 focus:ring-2 focus:ring-indigo-500"
+        >
+          {states.map((state, idx) => (
+            <option key={idx} value={state}>
+              {state}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search destinations..."
+          className="px-4 py-2 rounded-xl shadow border border-gray-300 focus:ring-2 focus:ring-indigo-500 w-64"
+        />
+      </div>
+
+      <div className="w-full h-96 mb-12 rounded-2xl overflow-hidden shadow-lg">
+        <MapContainer
+          center={[20, 0]}
+          zoom={2}
+          scrollWheelZoom={false}
+          className="h-full w-full"
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution="&copy; <a href='https://www.openstreetmap.org/'>OpenStreetMap</a> contributors"
+          />
+          <MapViewUpdater places={allPlaces} highlighted={highlightedPlace} />
+          {allPlaces.map((place, idx) => (
+            <Marker
+              key={idx}
+              position={place.coordinates}
+              icon={customIcon}
+              eventHandlers={{ click: () => setHighlightedPlace(place) }}
+            >
+              <Popup>
+                <strong>{place.name}</strong> <br /> {place.description}
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
+      </div>
+
+      <div className="max-w-6xl mx-auto space-y-12">
+        {Object.entries(filteredDestinations).map(([state, places], stateIdx) => (
+          places.length > 0 && (
+            <div key={stateIdx}>
+              <h2 className="text-3xl font-bold text-indigo-700 mb-6">{state}</h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {places.map((dest, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: idx * 0.2 }}
+                  >
+                    <Card
+                      ref={(el) => (cardRefs.current[dest.name] = el)}
+                      onClick={() => setHighlightedPlace(dest)}
+                      className={`rounded-2xl shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105 ${
+                        highlightedPlace?.name === dest.name ? "ring-4 ring-indigo-500" : ""
+                      }`}
+                    >
+                      <img
+                        src={dest.image}
+                        alt={dest.name}
+                        className="w-full h-48 object-cover"
+                      />
+                      <CardContent className="p-4">
+                        <h3 className="text-2xl font-semibold mb-2 flex items-center gap-2">
+                          <MapPin className="text-indigo-600 w-5 h-5" /> {dest.name}
+                        </h3>
+                        <p className="text-gray-700 mb-4">{dest.description}</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline">Explore</Button>
+                          <Button
+                            variant="default"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setHighlightedPlace(dest);
+                            }}
+                          >
+                            Show on Map
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          )
+        ))}
+      </div>
+    </div>
+  );
+}
